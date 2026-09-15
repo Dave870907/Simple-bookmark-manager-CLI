@@ -11,6 +11,7 @@ import argparse
 import sys
 from typing import Sequence
 
+from bookmark_manager import stats
 from bookmark_manager.repository import (
     Bookmark,
     BookmarkNotFoundError,
@@ -32,6 +33,19 @@ def format_results(bookmarks: Sequence[Bookmark], empty_message: str) -> str:
     if not bookmarks:
         return empty_message
     return "\n".join(format_bookmark(b) for b in bookmarks)
+
+
+def format_stats_report(report: stats.StatsReport) -> str:
+    """Render a StatsReport as a plain-ASCII horizontal bar chart."""
+    label_width = max(len(bucket.label) for bucket in report.buckets)
+    lines = []
+    for bucket in report.buckets:
+        bar = stats.render_bar(bucket.percentage).ljust(stats.MAX_BAR_WIDTH)
+        lines.append(
+            f"{bucket.label.ljust(label_width)}  {bar} "
+            f"{bucket.percentage:5.1f}% ({bucket.count})"
+        )
+    return "\n".join(lines)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -70,6 +84,16 @@ def build_parser() -> argparse.ArgumentParser:
     delete_parser = subparsers.add_parser("delete", help="Delete a bookmark by ID")
     delete_parser.add_argument("id", type=int, help="Bookmark ID to delete")
 
+    stats_parser = subparsers.add_parser(
+        "stats", help="Show a frequency distribution of domains or tags"
+    )
+    stats_parser.add_argument(
+        "--by",
+        choices=["domain", "tag"],
+        default="domain",
+        help="Dimension to aggregate by (default: domain)",
+    )
+
     return parser
 
 
@@ -102,6 +126,20 @@ def run(argv: Sequence[str] | None = None) -> int:
             elif args.command == "delete":
                 repo.delete(args.id)
                 print(f"Deleted bookmark {args.id}")
+            elif args.command == "stats":
+                bookmarks = repo.list_all()
+                if not bookmarks:
+                    print("No bookmarks found.")
+                else:
+                    report = (
+                        stats.compute_domain_stats(bookmarks)
+                        if args.by == "domain"
+                        else stats.compute_tag_stats(bookmarks)
+                    )
+                    if report.total == 0:
+                        print("No tags recorded yet.")
+                    else:
+                        print(format_stats_report(report))
     except (InvalidUrlError, DuplicateUrlError, InvalidTagsError, BookmarkNotFoundError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
