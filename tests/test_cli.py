@@ -110,5 +110,55 @@ class DeleteCommandTests(CliTestCase):
         self.assertIn("No bookmark found", err)
 
 
+class StatsCommandTests(CliTestCase):
+    """BR-STATS-01 through BR-STATS-05"""
+
+    def test_stats_no_bookmarks(self) -> None:
+        exit_code, out, err = self.run_cli("stats")
+        self.assertEqual(exit_code, 0)
+        self.assertIn("No bookmarks found.", out)
+        self.assertEqual(err, "")
+
+    def test_stats_default_view_is_domain(self) -> None:
+        self.run_cli("add", "https://github.com/a", "A")
+        self.run_cli("add", "https://github.com/b", "B")
+        exit_code, out, _ = self.run_cli("stats")
+        self.assertEqual(exit_code, 0)
+        self.assertIn("github.com", out)
+        self.assertIn("100.0%", out)
+        self.assertIn("(2)", out)
+
+    def test_stats_by_domain_groups_www_variant(self) -> None:
+        self.run_cli("add", "https://github.com/a", "A")
+        self.run_cli("add", "https://www.github.com/b", "B")
+        exit_code, out, _ = self.run_cli("stats", "--by", "domain")
+        self.assertEqual(exit_code, 0)
+        self.assertIn("github.com", out)
+        self.assertIn("(2)", out)
+
+    def test_stats_by_tag_no_tags_recorded(self) -> None:
+        self.run_cli("add", "https://a.com", "A")
+        exit_code, out, err = self.run_cli("stats", "--by", "tag")
+        self.assertEqual(exit_code, 0)
+        self.assertIn("No tags recorded yet.", out)
+        self.assertEqual(err, "")
+
+    def test_stats_by_tag_shows_tag_distribution(self) -> None:
+        self.run_cli("add", "https://a.com", "A", "--tags", '["python", "docs"]')
+        self.run_cli("add", "https://b.com", "B", "--tags", '["python"]')
+        exit_code, out, _ = self.run_cli("stats", "--by", "tag")
+        self.assertEqual(exit_code, 0)
+        self.assertIn("python", out)
+        self.assertIn("docs", out)
+
+    def test_stats_invalid_by_value_errors(self) -> None:
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            with self.assertRaises(SystemExit) as ctx:
+                run(["--db", self.db_path, "stats", "--by", "bogus"])
+        self.assertEqual(ctx.exception.code, 2)
+        self.assertIn("invalid choice", stderr.getvalue())
+
+
 if __name__ == "__main__":
     unittest.main()

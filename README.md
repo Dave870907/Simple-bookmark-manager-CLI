@@ -79,6 +79,29 @@ Deletes the bookmark with the given ID. If no bookmark with that ID
 exists, the command prints a clear error to stderr and exits with a
 non-zero status.
 
+### View stats
+
+```bash
+python3 -m bookmark_manager stats
+python3 -m bookmark_manager stats --by tag
+```
+
+Prints a plain-ASCII horizontal bar chart of your most-bookmarked domains
+(the default) or your most-used tags. Domain percentages are share of total
+bookmarks; tag percentages are share of total tag assignments (a bookmark
+with several tags counts toward each of its tags). At most the top 10
+entries are shown by name; anything beyond that is folded into a trailing
+`Other` bucket. Example output:
+
+```
+github.com   ######################          75.0% (3)
+example.com  ########                        25.0% (1)
+```
+
+If there are no bookmarks, prints `No bookmarks found.` If `--by tag` is
+used but no bookmark has any tags, prints `No tags recorded yet.` Both are
+normal, non-error outcomes (exit code 0).
+
 ## Running the tests
 
 ```bash
@@ -88,7 +111,8 @@ python3 -m unittest discover -s tests -v
 Tests cover the success and failure paths for every operation: add
 (success, duplicate URL, malformed URL, malformed tags), list (empty and
 non-empty), search-tag (match and no match), search-keyword (match and no
-match), and delete (success and missing ID).
+match), delete (success and missing ID), and stats (domain/tag aggregation,
+bucketing, bar rendering, and both empty states).
 
 ## Out of scope for this proof of concept
 
